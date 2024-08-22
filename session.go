@@ -3,6 +3,7 @@ package ginsession
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-session/session/v3"
@@ -47,12 +48,13 @@ func New(opt ...session.Option) gin.HandlerFunc {
 	return NewWithConfig(DefaultConfig, opt...)
 }
 
+const timeoutDuration = time.Second
+
 // NewWithConfig create a session middleware
 func NewWithConfig(config Config, opt ...session.Option) gin.HandlerFunc {
 	if config.ErrorHandleFunc == nil {
 		config.ErrorHandleFunc = DefaultConfig.ErrorHandleFunc
 	}
-
 	manageKey = config.ManageKey
 	if manageKey == "" {
 		manageKey = DefaultConfig.ManageKey
@@ -71,7 +73,9 @@ func NewWithConfig(config Config, opt ...session.Option) gin.HandlerFunc {
 		}
 
 		ctx.Set(manageKey, manage)
-		store, err := manage.Start(context.Background(), ctx.Writer, ctx.Request)
+		timeoutCtx, cancel := context.WithTimeout(ctx, timeoutDuration)
+		defer cancel()
+		store, err := manage.Start(timeoutCtx, ctx.Writer, ctx.Request)
 		if err != nil {
 			config.ErrorHandleFunc(ctx, err)
 			return
